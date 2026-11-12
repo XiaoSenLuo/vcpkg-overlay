@@ -1,0 +1,20 @@
+--- a/configure
++++ b/configure
+@@ -712,7 +712,16 @@
+ rm -f .1.c .1
+ 
+ if test "$r" -ne 0; then
+-	assert "" "update compiler"
++	# Cross-compilation: target binary cannot run on the host.
++	# Keep $CC unchanged; only determine the compiler *type* for later flag logic.
++	case "$CC" in
++		*clang*) COMPILER=clang ;;
++		*suncc*) COMPILER=suncc ;;
++		*mingw64*) COMPILER=mingw64 ;;
++		*mingw*) COMPILER=mingw32 ;;
++		*)       COMPILER=gcc ;;
++	esac
++	echo "success [$CC] (cross-compile, type=$COMPILER)"
+ else
+ 	echo "success [$CC]"
+ fi
