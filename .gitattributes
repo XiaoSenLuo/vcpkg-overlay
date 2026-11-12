@@ -1,8 +1,15 @@
-* -text
-ports/** -linguist-detectable
+# Normalize all text files to LF in the repository and on checkout.
+# Binary files are auto-detected and left untouched.
+* text=auto eol=lf
 
-# Declare files that will always have LF line endings on checkout.
-scripts/ci.baseline.txt text eol=lf
+# Windows cmd scripts require CRLF (label/goto parsing depends on it).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# PowerShell scripts follow the Windows convention.
+*.ps1 text eol=crlf
+
+ports/** -linguist-detectable
 
 # Stored patch files may legitimately contain whitespace that represents the
 # patched content rather than the patch file itself.
