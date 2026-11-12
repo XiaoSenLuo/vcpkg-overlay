@@ -1,0 +1,12 @@
+{
+  "name": "corrosion",
+  "version": "0.6.1",
+  "port-version": 0,
+  "description": "Marrying Rust and CMake - integration of Rust into CMake builds",
+  "homepage": "https://corrosion-rs.github.io/corrosion/",
+  "license": "MIT",
+  "dependencies": [
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ]
+}
