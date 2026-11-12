@@ -1,0 +1,32 @@
+{
+  "name": "slint",
+  "version": "1.18.1",
+  "port-version": 0,
+  "description": "Slint is a declarative GUI toolkit to build native user interfaces for Rust and C++",
+  "homepage": "https://slint.dev/",
+  "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
+  "supports": "!(staticcrt & windows)",
+  "dependencies": [
+    "corrosion",
+    {
+      "name": "vcpkg-cargo",
+      "host": true
+    },
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ],
+  "default-features": [
+    "software"
+  ],
+  "features": {
+    "femtovg": {
+      "description": "FemtoVG rendering backend (OpenGL ES 2.0)"
+    },
+    "skia": {
+      "description": "Skia rendering backend"
+    },
+    "software": {
+      "description": "Software rendering backend (CPU only)"
+    }
+  }
+}

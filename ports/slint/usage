@@ -1,0 +1,11 @@
+slint provides CMake targets:
+
+    find_package(Slint CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE Slint::Slint)
+
+The slint-compiler tool is installed in tools or bin; use it (or the
+slint_target_sources() / slint! macro flows) to compile .slint files
+ahead of time. The available renderers were selected at package install
+time via the port features software (default), femtovg and skia; at
+runtime the renderer is chosen with the SLINT_BACKEND environment
+variable (winit-software / winit-femtovg / winit-skia).
