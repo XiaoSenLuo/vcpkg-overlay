@@ -1,0 +1,7 @@
+zenoh-cpp provides CMake targets:
+
+    find_package(zenohcxx CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE zenohcxx::zenohc)
+
+The zenoh-c backend is found automatically; it can also be provided explicitly
+by calling find_package(zenohc CONFIG REQUIRED) before find_package(zenohcxx).

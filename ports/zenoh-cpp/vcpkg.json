@@ -1,0 +1,13 @@
+{
+  "name": "zenoh-cpp",
+  "version": "1.10.2",
+  "port-version": 0,
+  "description": "Header-only C++ API for Eclipse Zenoh, on top of the zenoh-c backend",
+  "homepage": "https://github.com/eclipse-zenoh/zenoh-cpp",
+  "license": "EPL-2.0 OR Apache-2.0",
+  "dependencies": [
+    "zenoh-c",
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ]
+}
