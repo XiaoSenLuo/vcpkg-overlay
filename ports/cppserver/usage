@@ -1,0 +1,4 @@
+cppserver provides CMake targets:
+
+    find_package(cppserver CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE cppserver::cppserver)

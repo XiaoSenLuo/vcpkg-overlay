@@ -1,0 +1,31 @@
+{
+  "name": "cppserver",
+  "version": "1.0.6.0",
+  "port-version": 1,
+  "description": "CppServer is a cross-platform asynchronous client/server C++ library with support of TCP, SSL, UDP, HTTP, HTTPS, WebSocket and WebSocket Secure protocols built on top of Asio and OpenSSL.",
+  "homepage": "https://github.com/chronoxor/CppServer",
+  "license": "MIT",
+  "dependencies": [
+    "asio",
+    "cppcommon",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "default-features": [
+    "openssl"
+  ],
+  "features": {
+    "openssl": {
+      "description": "Use the OpenSSL library built by vcpkg. When this feature is disabled, CMake falls back to find_package(OpenSSL) on the target platform or sysroot (e.g. the OpenSSL dynamic libraries shipped in a Yocto SDK). SSL support is always compiled in.",
+      "dependencies": [
+        "openssl"
+      ]
+    }
+  }
+}
