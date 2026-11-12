@@ -1,0 +1,11 @@
+{
+  "name": "vcpkg-cargo",
+  "version-date": "2026-11-03",
+  "port-version": 0,
+  "description": "Build helper functions for vcpkg ports that build Rust code with cargo",
+  "homepage": "https://github.com/rust-lang/cargo",
+  "license": "MIT",
+  "dependencies": [
+    "vcpkg-tool-rust"
+  ]
+}
