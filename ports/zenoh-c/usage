@@ -1,0 +1,7 @@
+zenoh-c provides CMake targets:
+
+    find_package(zenohc CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE zenohc::lib)
+
+zenohc::lib is an alias of zenohc::shared or zenohc::static following
+VCPKG_LIBRARY_LINKAGE of the triplet used at installation time.

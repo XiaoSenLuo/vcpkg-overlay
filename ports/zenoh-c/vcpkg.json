@@ -1,0 +1,82 @@
+{
+  "name": "zenoh-c",
+  "version": "1.10.2",
+  "port-version": 0,
+  "description": "The C API for Eclipse Zenoh, built from the official Rust implementation",
+  "homepage": "https://github.com/eclipse-zenoh/zenoh-c",
+  "license": "EPL-2.0 OR Apache-2.0",
+  "dependencies": [
+    {
+      "name": "vcpkg-cargo",
+      "host": true
+    },
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ],
+  "default-features": [
+    "auth-pubkey",
+    "auth-usrpwd",
+    "transport-multilink",
+    "transport-compression",
+    "transport-quic",
+    "transport-tcp",
+    "transport-tls",
+    "transport-udp",
+    "transport-unixsock-stream",
+    "transport-ws",
+    "transport-quic-datagram"
+  ],
+  "features": {
+    "shared-memory": {
+      "description": "Enable the zenoh shared-memory feature"
+    },
+    "unstable-api": {
+      "description": "Enable the unstable zenoh API"
+    },
+    "stats": {
+      "description": "Enable zenoh statistics counters"
+    },
+    "auth-pubkey": {
+      "description": "Enable public key authentication"
+    },
+    "auth-usrpwd": {
+      "description": "Enable user/password authentication"
+    },
+    "transport-multilink": {
+      "description": "Enable the multilink transport (several links per session)"
+    },
+    "transport-compression": {
+      "description": "Enable transport compression"
+    },
+    "transport-quic": {
+      "description": "Enable the QUIC transport"
+    },
+    "transport-serial": {
+      "description": "Enable the serial transport"
+    },
+    "transport-unixpipe": {
+      "description": "Enable the unixpipe transport"
+    },
+    "transport-tcp": {
+      "description": "Enable the TCP transport"
+    },
+    "transport-tls": {
+      "description": "Enable the TLS transport"
+    },
+    "transport-udp": {
+      "description": "Enable the UDP transport"
+    },
+    "transport-unixsock-stream": {
+      "description": "Enable the unix socket stream transport"
+    },
+    "transport-ws": {
+      "description": "Enable the WebSocket transport"
+    },
+    "transport-vsock": {
+      "description": "Enable the AF_VSOCK transport"
+    },
+    "transport-quic-datagram": {
+      "description": "Enable the QUIC datagram transport"
+    }
+  }
+}

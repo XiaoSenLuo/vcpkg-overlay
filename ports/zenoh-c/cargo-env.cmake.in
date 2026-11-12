@@ -1,0 +1,10 @@
+# Included by zenoh-c's project() command via CMAKE_PROJECT_TOP_LEVEL_INCLUDES.
+# Portfile environment variables are not reliably visible to the CMake configure
+# process spawned by vcpkg_cmake_configure; this file restores them inside that
+# process. zenoh-c reads ENV{CARGO_COMMAND} and ENV{CARGO_BUILD_TARGET} at
+# configure time to compute its cargo invocation and output paths.
+set(ENV{CARGO_COMMAND} "@VCPKG_CARGO_EXECUTABLE@")
+set(ENV{RUSTC} "@VCPKG_RUSTC_EXECUTABLE@")
+set(ENV{CARGO_HOME} "@VCPKG_CARGO_HOME@")
+set(ENV{CARGO_BUILD_TARGET} "@VCPKG_RUST_TARGET_TRIPLE@")
+set(ENV{PATH} "@VCPKG_CARGO_BIN_DIR@@VCPKG_CARGO_PATH_SEP@$ENV{PATH}")
