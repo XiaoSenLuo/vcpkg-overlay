@@ -1,0 +1,542 @@
+---
+ CMakeLists.txt                                | 30 +++++++++++-----
+ Data/CMakeLists.txt                           |  2 +-
+ Data/MySQL/CMakeLists.txt                     |  2 +-
+ Data/MySQL/include/Poco/Data/MySQL/MySQL.h    |  4 +--
+ Data/SQLite/CMakeLists.txt                    |  2 +-
+ Foundation/CMakeLists.txt                     | 17 +++++----
+ SevenZip/CMakeLists.txt                       |  2 +-
+ Util/CMakeLists.txt                           |  3 ++
+ XML/CMakeLists.txt                            |  2 +-
+ cmake/FindPCRE2.cmake                         | 35 ++++++++++++++++---
+ cmake/PocoConfig.cmake.in                     | 35 ++++++++++++++++++-
+ dependencies/CMakeLists.txt                   | 25 ++++++++++---
+ dependencies/expat/CMakeLists.txt             |  4 +--
+ dependencies/pcre2/CMakeLists.txt             |  6 ++--
+ dependencies/sqlite3/CMakeLists.txt           |  6 ++--
+ dependencies/utf8proc/CMakeLists.txt          |  5 +--
+ dependencies/v8_double_conversion/src/utils.h |  4 ++-
+ 17 files changed, 143 insertions(+), 41 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a7526d8cc..8abbc27da 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -170,8 +170,8 @@ endif()
+ 
+ if (NOT POCO_MINIMAL_BUILD)
+ 	find_package(OpenSSL 1.1.1)
+-	find_package(MySQL)
+-	find_package(PostgreSQL)
++	find_package(libmysql CONFIG)
++	find_package(PostgreSQL CONFIG)
+ 	find_package(ODBC)
+ 
+ 	find_package(APR)
+@@ -195,10 +195,16 @@ if (NOT POCO_MINIMAL_BUILD)
+ 		option(ENABLE_APACHECONNECTOR "Enable ApacheConnector" OFF)
+ 	endif()
+ 
+-	if(MYSQL_FOUND)
++	if(libmysql_FOUND)
+ 		option(ENABLE_DATA_MYSQL "Enable Data MySQL or MariaDB" ON)
+ 	else()
+-		option(ENABLE_DATA_MYSQL "Enable Data MySQL or MariaDB" OFF)
++		find_package(unofficial-libmariadb CONFIG)
++		if(unofficial-libmariadb_FOUND)
++			option(ENABLE_DATA_MYSQL "Enable Data MySQL or MariaDB" ON)
++			set(MYSQL_LIBRARIES unofficial::libmariadb)
++		else()
++			option(ENABLE_DATA_MYSQL "Enable Data MySQL or MariaDB" OFF)
++		endif()
+ 	endif()
+ 
+ 	if(PostgreSQL_FOUND)
+@@ -344,6 +350,8 @@ endif()
+ # Collect the built libraries and include dirs, the will be used to create the PocoConfig.cmake file
+ set(Poco_COMPONENTS "")
+ 
++# Do not declare the link library in the code!
++add_definitions(-DPOCO_NO_AUTOMATIC_LIBS)
+ 
+ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/OSP)
+ 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/OSP/cmake)
+@@ -446,7 +454,6 @@ if(ENABLE_TESTS)
+ 		set(ENABLE_JSON ON CACHE BOOL "Enable JSON" FORCE)
+ 		set(ENABLE_XML ON CACHE BOOL "Enable XML" FORCE)
+ 	endif()
+-
+ endif()
+ 
+ if(ENABLE_DATA_SQLITE)
+@@ -456,7 +463,7 @@ endif()
+ # - find external dependencies
+ 
+ if(ENABLE_APACHECONNECTOR)
+-	find_package(APR REQUIRED)
++	find_package(apr CONFIG REQUIRED)
+ 	find_package(APRUTIL REQUIRED)
+ 	find_package(Apache2 REQUIRED)
+ endif()
+@@ -466,7 +473,10 @@ if(ENABLE_CRYPTO OR ENABLE_NETSSL OR ENABLE_JWT)
+ endif()
+ 
+ if(ENABLE_DATA_MYSQL)
+-	find_package(MySQL REQUIRED)
++	find_package(libmysql REQUIRED)
++	if(NOT libmysql_FOUND)
++		find_package(unofficial-libmariadb CONFIG)
++	endif()
+ endif()
+ 
+ if(ENABLE_DATA_POSTGRESQL)
+@@ -542,7 +552,11 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/Prometheus AND ENABLE_PROMETHEUS)
+ endif()
+ 
+ if(EXISTS ${PROJECT_SOURCE_DIR}/PDF AND ENABLE_PDF)
+-	add_subdirectory(PDF)
++	# add_subdirectory(PDF)
++	include(SelectLibraryConfigurations)
++	find_library(PocoPDF_LIBRARY_RELEASE NAMES libhpdf)
++	find_library(PocoPDF_LIBRARY_DEBUG NAMES libhpdfd)
++	select_library_configurations(PocoPDF)
+ 	list(APPEND Poco_COMPONENTS "PDF")
+ endif()
+ 
+diff --git a/Data/CMakeLists.txt b/Data/CMakeLists.txt
+index 46eddb948..6f4f101ac 100644
+--- a/Data/CMakeLists.txt
++++ b/Data/CMakeLists.txt
+@@ -72,7 +72,7 @@ else(ENABLE_DATA_SQLITE)
+ 	message(STATUS "SQLite Support Disabled")
+ endif()
+ 
+-if(MYSQL_FOUND AND ENABLE_DATA_MYSQL)
++if((unofficial-libmysql_FOUND OR unofficial-libmariadb_FOUND) AND ENABLE_DATA_MYSQL)
+ 	message(STATUS "MySQL Support Enabled")
+ 	add_subdirectory(MySQL)
+ else()
+diff --git a/Data/MySQL/CMakeLists.txt b/Data/MySQL/CMakeLists.txt
+index 0ea8701a8..3c8a4260e 100644
+--- a/Data/MySQL/CMakeLists.txt
++++ b/Data/MySQL/CMakeLists.txt
+@@ -21,7 +21,7 @@ set_target_properties(DataMySQL
+ 	DEFINE_SYMBOL MySQL_EXPORTS
+ )
+ 
+-target_link_libraries(DataMySQL PUBLIC Poco::Data MySQL::client)
++target_link_libraries(DataMySQL PUBLIC Poco::Data ${MYSQL_LIBRARIES})
+ target_include_directories(DataMySQL
+ 	PUBLIC
+ 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+diff --git a/Data/MySQL/include/Poco/Data/MySQL/MySQL.h b/Data/MySQL/include/Poco/Data/MySQL/MySQL.h
+index 238659094..5817dae9d 100644
+--- a/Data/MySQL/include/Poco/Data/MySQL/MySQL.h
++++ b/Data/MySQL/include/Poco/Data/MySQL/MySQL.h
+@@ -57,8 +57,8 @@
+ 	#endif
+ 	#if defined(LIBMARIADB)
+ 		#pragma comment(lib, "libmariadb")
+-	#else
+-		#pragma comment(lib, "libmysql")
++	// #else
++		// #pragma comment(lib, "libmysql")
+ 	#endif
+ #endif
+ 
+diff --git a/Data/SQLite/CMakeLists.txt b/Data/SQLite/CMakeLists.txt
+index bff06b63d..10678f955 100644
+--- a/Data/SQLite/CMakeLists.txt
++++ b/Data/SQLite/CMakeLists.txt
+@@ -14,7 +14,7 @@ endif()
+ 
+ add_library(DataSQLite ${SQLITE_SRCS})
+ if (POCO_UNBUNDLED)
+-	target_link_libraries(DataSQLite PRIVATE SQLite::SQLite3)
++	target_link_libraries(DataSQLite PRIVATE unofficial::sqlite3::sqlite3)
+ 	target_compile_definitions(DataSQLite PUBLIC POCO_SQLITE_UNBUNDLED)
+ else()
+ 	target_link_libraries(DataSQLite PRIVATE "$<BUILD_LOCAL_INTERFACE:SQLite::SQLite3>")
+diff --git a/Foundation/CMakeLists.txt b/Foundation/CMakeLists.txt
+index 2a557cbe4..5f5a73559 100644
+--- a/Foundation/CMakeLists.txt
++++ b/Foundation/CMakeLists.txt
+@@ -38,7 +38,7 @@ if(POCO_UNBUNDLED)
+ 	# CONFIG-mode packages (e.g. Conan, vcpkg) may expose Pcre2::Pcre2 as an
+ 	# INTERFACE_LIBRARY aggregator; the PCRE2_STATIC compile definition is the
+ 	# canonical marker that the underlying build is static.
+-	get_target_property(_PCRE2TYPE Pcre2::Pcre2 TYPE)
++	get_target_property(_PCRE2TYPE PCRE2::8BIT TYPE)
+ 	if("${_PCRE2TYPE}" STREQUAL "SHARED_LIBRARY")
+ 		# HACK: Unicode.cpp requires functions from these files.
+ 		# They can't be used directly from the library
+@@ -46,7 +46,7 @@ if(POCO_UNBUNDLED)
+ 	elseif ("${_PCRE2TYPE}" STREQUAL "STATIC_LIBRARY")
+ 		message(STATUS "PCRE2: linking static library.")
+ 	elseif("${_PCRE2TYPE}" STREQUAL "INTERFACE_LIBRARY" OR "${_PCRE2TYPE}" STREQUAL "UNKNOWN_LIBRARY")
+-		get_target_property(_PCRE2DEFS Pcre2::Pcre2 INTERFACE_COMPILE_DEFINITIONS)
++		get_target_property(_PCRE2DEFS PCRE2::8BIT INTERFACE_COMPILE_DEFINITIONS)
+ 		if(_PCRE2DEFS MATCHES "PCRE2_STATIC")
+ 			message(STATUS "PCRE2: linking ${_PCRE2TYPE} (PCRE2_STATIC set).")
+ 		else()
+@@ -63,7 +63,7 @@ endif(POCO_UNBUNDLED)
+ 
+ add_library(Foundation ${SRCS})
+ if (POCO_UNBUNDLED)
+-	target_link_libraries(Foundation PRIVATE ZLIB::ZLIB Pcre2::Pcre2 Utf8Proc::Utf8Proc)
++	target_link_libraries(Foundation PRIVATE ZLIB::ZLIB PCRE2::8BIT utf8proc::utf8proc)
+ 	target_include_directories(Foundation PRIVATE ${EMBEDDED_PCRE2_INCLUDE})
+ 	target_compile_definitions(Foundation PUBLIC POCO_UNBUNDLED PRIVATE HAVE_CONFIG_H)
+ else()
+@@ -96,6 +96,10 @@ else()
+ 	target_compile_definitions(Foundation PUBLIC POCO_NO_FASTLOGGER)
+ endif()
+ 
++if(ENABLE_TRACE)
++	target_link_libraries(Foundation PUBLIC cpptrace::cpptrace)
++endif()
++
+ add_library(Poco::Foundation ALIAS Foundation)
+ set_target_properties(Foundation
+ 	PROPERTIES
+@@ -161,6 +165,9 @@ if(WIN32)
+ 		target_compile_definitions(Foundation PUBLIC POCO_NO_AUTOMATIC_LIBS)
+ 	endif()
+ 	target_link_libraries(Foundation PUBLIC iphlpapi)
++	if(MSVC)
++		target_link_libraries(Foundation PRIVATE advapi32.lib)
++	endif()
+ endif()
+ 
+ if(CYGWIN)
+@@ -192,10 +199,6 @@ else()
+ 	endif(UNIX AND NOT ANDROID)
+ endif(CYGWIN)
+ 
+-if(ENABLE_TRACE)
+-	target_link_libraries(Foundation PRIVATE "$<BUILD_LOCAL_INTERFACE:cpptrace::cpptrace>")
+-endif()
+-
+ if(CMAKE_SYSTEM MATCHES "SunOS")
+ 	target_compile_definitions(Foundation
+ 		PUBLIC
+diff --git a/SevenZip/CMakeLists.txt b/SevenZip/CMakeLists.txt
+index fe629ae3a..a50bebdab 100644
+--- a/SevenZip/CMakeLists.txt
++++ b/SevenZip/CMakeLists.txt
+@@ -15,7 +15,7 @@ endif()
+ add_library(SevenZip ${SRCS})
+ add_library(Poco::SevenZip ALIAS SevenZip)
+ 
+-target_link_libraries(SevenZip PRIVATE "$<BUILD_LOCAL_INTERFACE:7Zip::7Zip>")
++target_link_libraries(SevenZip PRIVATE "$<BUILD_LOCAL_INTERFACE:7zip::7zip>")
+ 
+ set_target_properties(SevenZip
+ 	PROPERTIES
+diff --git a/Util/CMakeLists.txt b/Util/CMakeLists.txt
+index 945ea2207..8c28b35c0 100644
+--- a/Util/CMakeLists.txt
++++ b/Util/CMakeLists.txt
+@@ -35,6 +35,9 @@ set_target_properties(Util
+ target_link_libraries(Util PUBLIC Poco::Foundation)
+ if(WIN32)
+ 	target_link_libraries(Util PUBLIC shell32.lib)
++	if(MSVC)
++		target_link_libraries(Util PRIVATE advapi32.lib)
++	endif()
+ endif()
+ if(ENABLE_XML)
+ 	target_link_libraries(Util PUBLIC Poco::XML)
+diff --git a/XML/CMakeLists.txt b/XML/CMakeLists.txt
+index 65add5cf8..4ac4ffda5 100644
+--- a/XML/CMakeLists.txt
++++ b/XML/CMakeLists.txt
+@@ -14,7 +14,7 @@ endif()
+ 
+ add_library(XML ${SRCS})
+ if (POCO_UNBUNDLED)
+-	target_link_libraries(XML PRIVATE EXPAT::EXPAT)
++	target_link_libraries(XML PRIVATE expat::expat)
+ 	target_compile_definitions(XML PUBLIC POCO_UNBUNDLED)
+ else()
+ 	target_link_libraries(XML PRIVATE "$<BUILD_LOCAL_INTERFACE:EXPAT::EXPAT>")
+diff --git a/cmake/FindPCRE2.cmake b/cmake/FindPCRE2.cmake
+index 1184cc3b1..bd2d1df08 100644
+--- a/cmake/FindPCRE2.cmake
++++ b/cmake/FindPCRE2.cmake
+@@ -54,28 +54,44 @@ Hints
+ include(FindPackageHandleStandardArgs)
+ 
+ find_package(PkgConfig QUIET)
+-pkg_check_modules(PC_PCRE2 QUIET pcre2)
++pkg_check_modules(PC_PCRE2 QUIET libpcre2-8)
+ 
+ find_path(PCRE2_INCLUDE_DIR
+   NAMES pcre2.h
+   HINTS
+         ${PCRE2_ROOT_DIR}/include
+         ${PCRE2_ROOT_INCLUDE_DIRS}
++        ${INSTALLED_LIB_PATH}
+   PATHS
+         ${PC_PCRE2_INCLUDE_DIRS}
+   DOC "Specify the include directory containing pcre2.h"
+ )
+ 
+-find_library(PCRE2_LIBRARY
+-  NAMES pcre2-8
++find_library(PCRE2_LIBRARY_DEBUG
++  NAMES pcre2-8d pcre2-8-staticd
+   HINTS
+         ${PCRE2_ROOT_DIR}/lib
+         ${PCRE2_ROOT_LIBRARY_DIRS}
++        ${INSTALLED_LIB_PATH}
+   PATHS
+         ${PC_PCRE2_LIBRARY_DIRS}
+   DOC "Specify the lib directory containing pcre2"
+ )
+ 
++find_library(PCRE2_LIBRARY_RELEASE
++        NAMES pcre2-8 pcre2-8-static
++        HINTS
++        ${PCRE2_ROOT_DIR}/lib
++        ${PCRE2_ROOT_LIBRARY_DIRS}
++        ${INSTALLED_LIB_PATH}
++        PATHS
++        ${PC_PCRE2_LIBRARY_DIRS}
++        DOC "Specify the lib directory containing pcre2"
++)
++
++include(SelectLibraryConfigurations)
++select_library_configurations(PCRE2)
++
+ set(PCRE2_VERSION ${PC_PCRE2_VERSION})
+ 
+ find_package_handle_standard_args(PCRE2
+@@ -87,19 +103,28 @@ find_package_handle_standard_args(PCRE2
+ )
+ 
+ if(PCRE2_FOUND)
++  get_property(_is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
++  if(NOT _is_multi_config)
++    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
++      set(PCRE2_LIBRARY ${PCRE2_LIBRARY_DEBUG})
++    else()
++      set(PCRE2_LIBRARY ${PCRE2_LIBRARY_RELEASE})
++    endif()
++  endif()
+   set(PCRE2_LIBRARIES ${PCRE2_LIBRARY})
+   set(PCRE2_INCLUDE_DIRS ${PCRE2_INCLUDE_DIR})
+   set(PCRE2_DEFINITIONS ${PC_PCRE2_CFLAGS_OTHER})
+ endif()
+ 
+ if(PCRE2_FOUND AND NOT TARGET Pcre2::Pcre2)
+-
+   # Determine PCRE2 library type
+   set(_PCRE2_LIB_TYPE UNKNOWN)
++  set(_PCRE2_DEFINES)
+ #  cmake_path(GET PCRE2_LIBRARY EXTENSION LAST_ONLY _PCRE2_SUFFIX) # CMake 3.20+
+   get_filename_component(_PCRE2_SUFFIX ${PCRE2_LIBRARY} LAST_EXT)
+   if ("${_PCRE2_SUFFIX}" STREQUAL "${CMAKE_STATIC_LIBRARY_SUFFIX}")
+     set(_PCRE2_LIB_TYPE STATIC)
++    set(_PCRE2_DEFINES PCRE2_STATIC)
+   elseif ("${_PCRE2_SUFFIX}" STREQUAL "${CMAKE_SHARED_LIBRARY_SUFFIX}")
+     set(_PCRE2_LIB_TYPE SHARED)
+   elseif ("${_PCRE2_SUFFIX}" STREQUAL ".tbd") # new versions of macOS
+@@ -110,10 +135,12 @@ if(PCRE2_FOUND AND NOT TARGET Pcre2::Pcre2)
+   set_target_properties(Pcre2::Pcre2 PROPERTIES
+     IMPORTED_LOCATION "${PCRE2_LIBRARY}"
+     INTERFACE_COMPILE_OPTIONS "${PC_PCRE2_CFLAGS_OTHER}"
++    INTERFACE_COMPILE_DEFINITIONS "${_PCRE2_DEFINES}"
+     INTERFACE_INCLUDE_DIRECTORIES "${PCRE2_INCLUDE_DIR}"
+   )
+   unset(_PCRE2_LIB_TYPE)
+   unset(_PCRE2_SUFFIX)
++  unset(_PCRE2_DEFINES)
+ endif()
+ 
+ mark_as_advanced(
+diff --git a/cmake/PocoConfig.cmake.in b/cmake/PocoConfig.cmake.in
+index 173eacd8c..832a4ddb8 100644
+--- a/cmake/PocoConfig.cmake.in
++++ b/cmake/PocoConfig.cmake.in
+@@ -8,6 +8,39 @@ if (NOT Poco_FIND_COMPONENTS)
+     return()
+ endif()
+ 
++include(CMakeFindDependencyMacro)
++find_dependency(ZLIB REQUIRED)
++find_dependency(pcre2 CONFIG REQUIRED COMPONENTS 8BIT)
++find_dependency(utf8proc CONFIG REQUIRED)
++find_dependency(cpptrace CONFIG)
++find_dependency(quill CONFIG)
++if(Poco_FIND_REQUIRED_XML OR Poco_FIND_REQUIRED_Util)
++    find_dependency(expat CONFIG REQUIRED)
++endif()
++
++if(Poco_FIND_REQUIRED_DataSQLite)
++    find_dependency(unofficial-sqlite3 CONFIG REQUIRED)
++endif()
++
++if(Poco_FIND_REQUIRED_DataMySQL)
++    find_dependency(libmysql CONFIG)
++    if(NOT libmysql_FOUND)
++        find_dependency(unofficial-libmariadb CONFIG)
++    endif()
++endif()
++
++if(Poco_FIND_REQUIRED_DataPostgreSQL)
++    find_dependency(PostgreSQL CONFIG REQUIRED)
++endif()
++
++if(Poco_FIND_REQUIRED_PDF)
++    find_dependency(PNG REQUIRED)
++endif()
++
++if(Poco_FIND_REQUIRED_SevenZip)
++    find_dependency(7zip CONFIG)
++endif()
++
+ set(_Poco_FIND_PARTS_REQUIRED)
+ if (Poco_FIND_REQUIRED)
+     set(_Poco_FIND_PARTS_REQUIRED REQUIRED)
+@@ -23,7 +56,7 @@ set(_Poco_NOTFOUND_MESSAGE)
+ 
+ # Let components find each other, but don't overwrite CMAKE_PREFIX_PATH
+ set(_Poco_CMAKE_PREFIX_PATH_old ${CMAKE_PREFIX_PATH})
+-set(CMAKE_PREFIX_PATH ${_Poco_install_prefix})
++set(CMAKE_PREFIX_PATH ${_Poco_install_prefix} ${CMAKE_PREFIX_PATH})
+ 
+ foreach(module ${Poco_FIND_COMPONENTS})
+     find_package(Poco${module}
+diff --git a/dependencies/CMakeLists.txt b/dependencies/CMakeLists.txt
+index 2545320e8..3de5724c9 100644
+--- a/dependencies/CMakeLists.txt
++++ b/dependencies/CMakeLists.txt
+@@ -1,5 +1,6 @@
+ # zlib may already have been added early at the top level to provide a global
+ # ZLIB::ZLIB for FindOpenSSL's transitive find_dependency(ZLIB).
++
+ if(NOT TARGET ZLIB::ZLIB)
+ 	add_subdirectory(zlib)
+ endif()
+@@ -9,16 +10,32 @@ add_subdirectory(utf8proc)
+ add_subdirectory(pdjson)
+ add_subdirectory(sqlite3)
+ add_subdirectory(expat)
+-add_subdirectory(7zip)
++find_package(7zip CONFIG)
++if(NOT 7zip_FOUND)
++	add_subdirectory(7zip)
++else()
++	set_target_properties(7zip::7zip PROPERTIES IMPORTED_GLOBAL TRUE)
++endif()
+ if(WIN32)
+-	add_subdirectory(wepoll)
++	add_subdirectory(wepoll) # vcpkg not wepoll cmake target, only library file
+ endif()
+ add_subdirectory(png)
+ add_subdirectory(hpdf)
+ if(ENABLE_FASTLOGGER)
+-	add_subdirectory(quill)
++	find_package(quill CONFIG)
++	if(quill_FOUND)
++  		set_target_properties(quill::quill PROPERTIES IMPORTED_GLOBAL TRUE)
++	else()
++		add_subdirectory(quill)
++	endif()
+ endif()
++
+ if(ENABLE_TRACE)
+-	add_subdirectory(cpptrace)
++	find_package(cpptrace CONFIG)
++	if(cpptrace_FOUND)
++		set_target_properties(cpptrace::cpptrace PROPERTIES IMPORTED_GLOBAL TRUE)
++	else()
++		add_subdirectory(cpptrace)
++	endif()
+ endif()
+ add_subdirectory(tessil)
+diff --git a/dependencies/expat/CMakeLists.txt b/dependencies/expat/CMakeLists.txt
+index 3bf32075c..9648298fa 100644
+--- a/dependencies/expat/CMakeLists.txt
++++ b/dependencies/expat/CMakeLists.txt
+@@ -4,8 +4,8 @@
+ 
+ if(POCO_UNBUNDLED)
+ 	if (ENABLE_XML)
+-		find_package(EXPAT REQUIRED)
+-		set_target_properties(EXPAT::EXPAT PROPERTIES IMPORTED_GLOBAL TRUE)
++		find_package(expat CONFIG REQUIRED)
++		set_target_properties(expat::expat PROPERTIES IMPORTED_GLOBAL TRUE)
+ 	endif()
+ else()
+ 	# Core sources -- exclude the per-entropy-source random_*.c files;
+diff --git a/dependencies/pcre2/CMakeLists.txt b/dependencies/pcre2/CMakeLists.txt
+index 9429aeb24..e031cf4bb 100644
+--- a/dependencies/pcre2/CMakeLists.txt
++++ b/dependencies/pcre2/CMakeLists.txt
+@@ -3,8 +3,10 @@
+ # Source: https://github.com/PCRE2Project/pcre2/releases/tag/pcre2-10.47
+ 
+ if(POCO_UNBUNDLED)
+-	find_package(PCRE2 REQUIRED)
+-	set_target_properties(Pcre2::Pcre2 PROPERTIES IMPORTED_GLOBAL TRUE)
++	# find_package(PCRE2)
++	# set_target_properties(Pcre2::Pcre2 PROPERTIES IMPORTED_GLOBAL TRUE)
++	# use vcpkg find_package maybe better?
++	find_package(pcre2 CONFIG REQUIRED COMPONENTS 8BIT GLOBAL)
+ 
+ 	# HACK: Foundation Unicode.cpp requires functions from these files.
+ 	# They can't be used directly from the library
+diff --git a/dependencies/sqlite3/CMakeLists.txt b/dependencies/sqlite3/CMakeLists.txt
+index 7314a7571..62db3f691 100644
+--- a/dependencies/sqlite3/CMakeLists.txt
++++ b/dependencies/sqlite3/CMakeLists.txt
+@@ -4,10 +4,10 @@
+ 
+ if(POCO_SQLITE_UNBUNDLED)
+ 	if (ENABLE_DATA_SQLITE)
+-		find_package(SQLite3 REQUIRED)
+-		set_target_properties(SQLite::SQLite3 PROPERTIES IMPORTED_GLOBAL TRUE)
++		find_package(unofficial-sqlite3 CONFIG REQUIRED)
++		set_target_properties(unofficial::sqlite3::sqlite3 PROPERTIES IMPORTED_GLOBAL TRUE)
+ 		message(WARNING "Unbundled SQLite3: Assuming that it was compiled with SQLITE_THREADSAFE=1")
+-		target_compile_definitions(SQLite::SQLite3 INTERFACE SQLITE_THREADSAFE=1)
++		# target_compile_definitions(SQLite::SQLite3 INTERFACE SQLITE_THREADSAFE=1)
+ 	endif()
+ else()
+ 
+diff --git a/dependencies/utf8proc/CMakeLists.txt b/dependencies/utf8proc/CMakeLists.txt
+index b70dac92c..78a9d064f 100644
+--- a/dependencies/utf8proc/CMakeLists.txt
++++ b/dependencies/utf8proc/CMakeLists.txt
+@@ -3,8 +3,9 @@
+ # Source: https://github.com/JuliaStrings/utf8proc/releases/tag/v2.11.3
+ 
+ if(POCO_UNBUNDLED)
+-	find_package(Utf8Proc REQUIRED)
+-	set_target_properties(Utf8Proc::Utf8Proc PROPERTIES IMPORTED_GLOBAL TRUE)
++	# find_package(Utf8Proc REQUIRED)
++	find_dependency(utf8proc CONFIG REQUIRED)
++	set_target_properties(utf8proc::utf8proc PROPERTIES IMPORTED_GLOBAL TRUE)
+ else()
+ 
+ 	# Sources
+diff --git a/dependencies/v8_double_conversion/src/utils.h b/dependencies/v8_double_conversion/src/utils.h
+index 4f4dd71bf..453f5313f 100644
+--- a/dependencies/v8_double_conversion/src/utils.h
++++ b/dependencies/v8_double_conversion/src/utils.h
+@@ -136,7 +136,9 @@ int main(int argc, char** argv) {
+ //
+ // If it prints "correct" then the architecture should be here, in the "correct" section.
+ #if defined(_M_X64) || defined(__x86_64__) || \
+-    defined(__ARMEL__) || defined(__avr32__) || defined(_M_ARM) || defined(_M_ARM64) || \
++    defined(__ARMEL__) || defined(__avr32__) || \
++    defined(__arm__) || defined(__arm64__) || \
++    defined(_M_ARM) ||  defined(_M_ARM64) || \
+     defined(__hppa__) || defined(__ia64__) || \
+     defined(__mips__) || \
+     defined(__loongarch__) || \
+-- 
+2.50.1.windows.1
+

@@ -1,0 +1,20 @@
+---
+ Foundation/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Foundation/CMakeLists.txt b/Foundation/CMakeLists.txt
+index 5f5a73559..884762320 100644
+--- a/Foundation/CMakeLists.txt
++++ b/Foundation/CMakeLists.txt
+@@ -220,7 +220,7 @@ if(MINGW)
+ 			_WIN32
+ 			MINGW32
+ 			WINVER=0x500
+-			ODBCVER=0x0350
++			# ODBCVER=0x0350
+ 			POCO_THREAD_STACK_SIZE
+ 	)
+ endif()
+-- 
+2.50.1.windows.1
+
