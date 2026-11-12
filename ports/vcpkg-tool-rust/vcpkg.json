@@ -1,0 +1,9 @@
+{
+  "name": "vcpkg-tool-rust",
+  "version": "1.98.1",
+  "port-version": 0,
+  "description": "Rust compiler toolchain (rustc, cargo and the host std library) from the official standalone distribution archives",
+  "homepage": "https://www.rust-lang.org/",
+  "license": "MIT OR Apache-2.0",
+  "supports": "native"
+}
