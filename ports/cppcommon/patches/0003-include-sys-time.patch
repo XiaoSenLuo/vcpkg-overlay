@@ -1,0 +1,10 @@
+--- a/source/time/timestamp.cpp
++++ b/source/time/timestamp.cpp
+@@ -17,6 +17,7 @@
+ #include <math.h>
+ #include <time.h>
+ #elif defined(unix) || defined(__unix) || defined(__unix__)
++#include <sys/time.h>
+ #include <time.h>
+ #elif defined(_WIN32) || defined(_WIN64)
+ #include <windows.h>

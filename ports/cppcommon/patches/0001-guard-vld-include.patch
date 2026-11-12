@@ -1,0 +1,22 @@
+--- a/include/memory/memory_leaks.h
++++ b/include/memory/memory_leaks.h
+@@ -18,7 +18,7 @@
+ #endif
+ 
+ //! @cond INTERNALS
+-#if defined(_MSC_VER)
++#if defined(_MSC_VER) && defined(CPPCOMMON_ENABLE_VLD)
+ #define VLD_FORCE_ENABLE
+ #include <vld.h>
+ #endif
+--- a/include/memory/memory_leaks_debug.h
++++ b/include/memory/memory_leaks_debug.h
+@@ -18,7 +18,7 @@
+ #endif
+ 
+ //! @cond INTERNALS
+-#if defined(_MSC_VER)
++#if defined(_MSC_VER) && defined(CPPCOMMON_ENABLE_VLD)
+ #include <vld.h>
+ #endif
+ //! @endcond

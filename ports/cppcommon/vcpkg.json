@@ -1,0 +1,23 @@
+{
+  "name": "cppcommon",
+  "version": "1.0.6.0",
+  "port-version": 1,
+  "description": "CppCommon is a collection of common utilities, patterns and components for C++ development: error and exception handling, filesystem manipulations, string format and encoding, shared memory, threading, time management and others.",
+  "homepage": "https://github.com/chronoxor/CppCommon",
+  "license": "MIT",
+  "dependencies": [
+    "fmt",
+    {
+      "name": "libuuid",
+      "platform": "linux"
+    },
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

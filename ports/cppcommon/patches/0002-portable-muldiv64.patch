@@ -1,0 +1,51 @@
+--- a/source/math/math.cpp
++++ b/source/math/math.cpp
+@@ -304,7 +304,47 @@
+ #pragma warning(pop)
+ #endif
+ #else
+-    #error MulDiv64 is no supported!
++    // Portable implementation for targets which support neither __int128 nor
++    // MSVC intrinsics (e.g. 32-bit ARM): 64x64->128-bit multiply followed by
++    // a 128/64-bit divide. The multiplication below is derived from the
++    // schoolbook mul64() macro in OpenSSL (crypto/bn/bn_local.h, Apache
++    // License 2.0), adapted from 16/32-bit limbs to 32/64-bit limbs.
++    uint64_t lt = operant & 0xFFFFFFFFull;
++    uint64_t ht = operant >> 32;
++    uint64_t bl = multiplier & 0xFFFFFFFFull;
++    uint64_t bh = multiplier >> 32;
++
++    // 64x64-bit schoolbook multiplication into a 128-bit value (hi:lo)
++    uint64_t m = bh * lt;
++    uint64_t lo = bl * lt;
++    uint64_t m1 = bl * ht;
++    ht = bh * ht;
++    m = m + m1;
++    ht += ((m < m1) ? 1ull : 0ull) << 32;
++    ht += m >> 32;
++    m1 = m << 32;
++    lo = lo + m1;
++    ht += (lo < m1);
++
++    // 128/64-bit bitwise long division, keeps the low 64 bits of the quotient
++    uint64_t result = 0;
++    uint64_t remainder = 0;
++    uint64_t remainder_hi = 0;
++    for (int i = 0; i < 128; ++i)
++    {
++        uint64_t bit = (i < 64) ? ((ht >> (63 - i)) & 1ull) : ((lo >> (127 - i)) & 1ull);
++        remainder_hi = (remainder_hi << 1) | (remainder >> 63);
++        remainder = (remainder << 1) | bit;
++        if (remainder_hi != 0 || remainder >= divider)
++        {
++            remainder -= divider;
++            remainder_hi = 0;
++            if (i >= 64)
++                result |= (1ull << (127 - i));
++        }
++    }
++
++    return result;
+ #endif
+ }
+ 
