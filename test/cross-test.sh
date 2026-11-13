@@ -15,7 +15,11 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 snapshot() { # $1 = output file: sorted "<sha1>  <path>" of the three dest trees
-    (cd "$ROOT" && find overlay scripts/toolchains triplets -type f | sort |
+    local roots="" r
+    for r in overlay scripts/toolchains triplets; do
+        [ -e "$ROOT/$r" ] && roots="$roots $r"
+    done
+    (cd "$ROOT" && find $roots -type f | sort |
         while IFS= read -r f; do sha1sum "$f"; done) > "$1"
 }
 

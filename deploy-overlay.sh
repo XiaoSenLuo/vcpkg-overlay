@@ -140,7 +140,7 @@ if [ "$RESTORE" -eq 1 ]; then
     cleanup_empty_dirs "$DST_TRIPLETS"
     echo "restore finished: removed $n_removed file(s), restored $n_restored backup(s)"
 else
-    stale="$(find "$DST_PORTS" "$DST_TOOLCHAINS" "$DST_TRIPLETS" -name '*.origin' -print -quit 2>/dev/null)"
+    stale="$(find "$DST_PORTS" "$DST_TOOLCHAINS" "$DST_TRIPLETS" -name '*.origin' -print -quit 2>/dev/null || true)"
     if [ -n "$stale" ]; then
         echo "error: found '$stale' left by a previous deploy." >&2
         echo "Run '$0 --vcpkg-root <path> --restore' first, then deploy again." >&2
